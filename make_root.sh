@@ -26,6 +26,7 @@ if [ -d "$BUSYBOX" ] && [ -d "$LINUX" ]; then
     mkdir ramfs && cd ramfs &&
     mkdir -p bin etc dev lib proc sbin sys tmp usr usr/bin usr/lib usr/sbin &&
     cp "$BUSYBOX"/busybox bin/ &&
+    rsync -a ../ramfs-merge/ ./ &&
     ln -s bin/busybox ./init &&
     cp $ROOT_INITTAB etc/inittab &&
     echo "\
@@ -33,6 +34,7 @@ if [ -d "$BUSYBOX" ] && [ -d "$LINUX" ]; then
         mknod dev/tty c 5 0 && \
         mknod dev/zero c 1 5 && \
         mknod dev/console c 5 1 && \
+        mknod dev/fb0 c 29 0 && \
         find . | cpio -H newc -o > "$LINUX"/initramfs.cpio\
         " | fakeroot &&
     if [ $? -ne 0 ]; then echo "build busybox failed!"; fi &&
@@ -40,6 +42,7 @@ if [ -d "$BUSYBOX" ] && [ -d "$LINUX" ]; then
     echo "build linux..." &&
     cp $LINUX_CFG "$LINUX"/.config &&
     make -j$(nproc) -C "$LINUX" ARCH=riscv vmlinux 2>&1 1>/dev/null &&
+    riscv64-unknown-linux-gnu-strip "$LINUX"/vmlinux -o "$LINUX"/vmlinux-stripped
     if [ $? -ne 0 ]; then echo "build linux failed!"; fi &&
     \
     echo "build bbl..." &&
@@ -50,7 +53,7 @@ if [ -d "$BUSYBOX" ] && [ -d "$LINUX" ]; then
     ../configure \
         --host=riscv64-unknown-elf \
         --with-lowrisc="$LOWRISC" \
-        --with-payload="$LINUX"/vmlinux \
+        --with-payload="$LINUX"/vmlinux-stripped \
         2>&1 1>/dev/null &&
     make -j$(nproc) bbl 2>&1 1>/dev/null &&
     if [ $? -ne 0 ]; then echo "build linux failed!"; fi &&
